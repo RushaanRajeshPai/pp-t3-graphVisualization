@@ -201,7 +201,6 @@ import google.generativeai as genai
 
 app = FastAPI()
 
-# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  
@@ -210,7 +209,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Configure Gemini API
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 genai.configure(api_key=GEMINI_API_KEY)
 
@@ -244,9 +242,7 @@ def generate_data_from_gemini(query: str):
     response = model.generate_content(prompt)
     
     try:
-        # Parse the generated content into JSON
         json_str = response.text
-        # If the response has code blocks, extract just the JSON
         if "```json" in json_str:
             json_str = json_str.split("```json")[1].split("```")[0].strip()
         elif "```" in json_str:
@@ -264,13 +260,11 @@ def create_visualization(data_config):
     data = data_config["data"]
     chart_type = data_config["chart_type"].lower()
     
-    # Convert data to appropriate format
     if isinstance(data, list) and all(isinstance(item, dict) for item in data):
-        # Extract x and y values
+        #Extracting x and y values
         x_values = [item.get("x") for item in data]
         y_values = [item.get("y") for item in data]
         
-        # Handle different chart types
         if chart_type == "line":
             plt.plot(x_values, y_values, marker='o')
         elif chart_type == "bar":
@@ -283,19 +277,17 @@ def create_visualization(data_config):
             # Default to line chart
             plt.plot(x_values, y_values, marker='o')
     
-    # Set labels and title
     plt.xlabel(data_config.get("x_label", ""))
     plt.ylabel(data_config.get("y_label", ""))
     plt.title(data_config.get("title", ""))
     plt.grid(True)
     plt.tight_layout()
     
-    # Save the figure to a bytes buffer
     buf = io.BytesIO()
     plt.savefig(buf, format='png')
     buf.seek(0)
     
-    # Encode the image as base64
+    #Encoding the image as base64
     img_str = base64.b64encode(buf.read()).decode('utf-8')
     plt.close()
     
@@ -305,10 +297,10 @@ def create_visualization(data_config):
 async def generate_plot(request: PlotRequest):
     """Generate a plot based on the user's query."""
     try:
-        # Generate data using Gemini
+        #Generating data using Gemini
         data_config = generate_data_from_gemini(request.query)
         
-        # Create visualization and convert to base64
+        #Create visualization and convert to base64
         base64_image = create_visualization(data_config)
         
         # Return the base64 encoded image
