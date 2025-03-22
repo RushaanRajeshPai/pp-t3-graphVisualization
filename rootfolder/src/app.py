@@ -209,7 +209,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "AIzaSyDQcmV2pdj6Z2gSlCrWHfjojwyfOlBIv0Y")
 genai.configure(api_key=GEMINI_API_KEY)
 
 class PlotRequest(BaseModel):

@@ -55,7 +55,7 @@ function App() {
             id="query"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="e.g., Number of job losses vs. number of years"
+            placeholder="Enter query"
           />
         </div>
 
@@ -73,11 +73,11 @@ function App() {
           <h2>{chartInfo.title}</h2>
           {image && (
             <div>
-              {/* <img 
+              <img 
                 src={`data:image/png;base64,${image}`} 
                 alt={chartInfo.title} 
-              /> */}
-              <pre style={{ wordWrap: "break-word", whiteSpace: "pre-wrap" }}>
+              />
+              <pre style={{wordWrap:"break-word", whiteSpace:"pre-wrap"}}>
                 {image}
               </pre>
               <div>
