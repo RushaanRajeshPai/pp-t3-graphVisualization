@@ -506,7 +506,6 @@
 #     import uvicorn
 #     uvicorn.run(app, host="0.0.0.0", port=8000)
 
-
 import matplotlib.pyplot as plt
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.schema import SystemMessage, HumanMessage
@@ -516,18 +515,20 @@ import importlib
 import io
 import base64
 from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware  # Added for CORS support
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+import numpy as np
+import re
 
 app = FastAPI()
 
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins, modify for production
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 class PlotRequest(BaseModel):
@@ -539,205 +540,122 @@ os.environ["GOOGLE_API_KEY"] = "AIzaSyDQcmV2pdj6Z2gSlCrWHfjojwyfOlBIv0Y"
 # Initialize LLM
 llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash")
 
-# Make sure directories exist
-os.makedirs("src", exist_ok=True)
+def extract_code_from_response(response_text: str) -> str:
+    """Extract Python code from Gemini's response"""
+    # Try to find code between Python code blocks
+    code_match = re.search(r'python\n(.*?)\n', response_text, re.DOTALL)
+    if code_match:
+        return code_match.group(1)
+    
+    # If no Python blocks found, try any code blocks
+    code_match = re.search(r'(.*?)', response_text, re.DOTALL)
+    if code_match:
+        return code_match.group(1)
+    
+    # If no code blocks found, return the entire response
+    return response_text
 
-def check_package_availability():
-    """Check if optional visualization packages are available"""
-    available_packages = []
-    optional_packages = ["seaborn", "plotly", "squarify"]
-    
-    for package in optional_packages:
-        try:
-            importlib.import_module(package)
-            available_packages.append(package)
-        except ImportError:
-            pass
-    
-    return available_packages
-
-def plot_to_base64():
-    """Convert the current matplotlib plot to a base64 string"""
-    # Create a bytes buffer for the image
-    buf = io.BytesIO()
-    
-    # Save the plot to the buffer
-    plt.savefig(buf, format='png')
-    buf.seek(0)
-    
-    # Convert to base64
-    img_str = base64.b64encode(buf.getvalue()).decode('utf-8')
-    
-    # Close the plot to free memory
-    plt.close()
-    
-    return img_str
-
-def create_visualization(data_config):
-    """Create visualization based on the data configuration and return as base64"""
-    try:
-        # Execute the generated code from data_config
-        namespace = {'_name': 'main', 'plt': plt, 'os': os, 'np': __import__('numpy')}
-        
-        # Make sure the code doesn't actually save the file but returns the plot object
-        modified_code = data_config["code"].replace("plt.savefig", "# plt.savefig")
-        
-        # Execute the code
-        exec(modified_code, namespace)
-        
-        # Convert the plot to base64
-        base64_image = plot_to_base64()
-        
-        return base64_image
-        
-    except Exception as e:
-        raise Exception(f"Error creating visualization: {str(e)}")
-
-def generate_data_from_gemini(user_query):
-    """Generate visualization code based on user query using Gemini"""
-    
-    # Check available packages
-    available_packages = check_package_availability()
-    package_info = "Available optional packages: " + ", ".join(available_packages) if available_packages else "No optional packages available."
-    
-    # Create a more robust prompt with clearer instructions
+def get_visualization_code(query: str):
+    """Get visualization code from Gemini"""
     prompt = f"""
-    Write Python code to {user_query}. The code should:
-    1. Use matplotlib as the primary visualization library
-    2. Do NOT save the output to a file - we'll handle that later
-    3. Use mock/sample data that's defined directly in the code (do not fetch external data)
-    4. Include proper indentation and formatting
-    5. Be completely self-contained with ALL necessary imports at the top
-    6. AVOID interactive features that require user input or window events
-    7. AVOID legends with clickable elements or hover events
-    8. If creating multiple subplots, use plt.subplots() and explicit axes
-    9. Include appropriate titles, labels, and color schemes
-    10. Use only standard libraries (matplotlib, numpy) - DO NOT use {', '.join(['squarify', 'plotly', 'bokeh', 'altair'])}
-    11. For complex layouts, prefer using subplots instead of advanced libraries
-    
-    {package_info}
-    
+    Generate Python code for the following visualization request: {query}
+
+    Requirements:
+    1. Use ONLY matplotlib and numpy (DO NOT use scipy or other libraries)
+    2. For trend lines, use numpy.polyfit instead of scipy.stats
+    3. Include all necessary imports at the top
+    4. Create sample data arrays that MUST have exactly the same length
+    5. Add proper title, labels, and grid
+    6. Make the visualization clear and professional
+    7. DO NOT include plt.show() or plt.savefig()
+    8. Use plt.figure(figsize=(15, 5)) for wide multi-panel plots
+
     Example format:
     python
     import matplotlib.pyplot as plt
     import numpy as np
+
+    # Create figure
+    plt.figure(figsize=(15, 5))
+
+    # For trend lines, use:
+    coefficients = np.polyfit(x, y, 1)
+    trend_line = coefficients[0] * x + coefficients[1]
     
-    # Sample data
-    x = np.array([1, 2, 3, 4, 5])
-    y = np.array([10, 15, 7, 12, 9])
-    
-    # Create plot
-    plt.figure(figsize=(10, 6))
-    plt.plot(x, y)
-    plt.title('Sample Chart')
-    plt.xlabel('X-axis')
-    plt.ylabel('Y-axis')
-    plt.grid(True, alpha=0.3)
-    plt.tight_layout()
-    
-    
-    Important: Ensure all code has proper indentation and is executable Python code without syntax errors.
     """
     
     messages = [
-        SystemMessage(content="""You are an expert Python developer specializing in data visualization. Your code should be correct, properly formatted, and ready to execute.
-        
-        Follow these strict guidelines:
-        1. Avoid any interactive features requiring user input or window events
-        2. Don't use external libraries that might not be installed 
-        3. Always include all necessary imports at the top
-        4. Never use interactive features of matplotlib (like mpl_connect)
-        5. Create static visualizations only
-        6. For complex visualizations, use multiple subplots rather than advanced libraries
-        7. DO NOT include code to save the visualization to a file - that will be handled separately"""),
+        SystemMessage(content="""You are a Python data visualization expert. Generate only executable matplotlib code.
+        IMPORTANT: Use only numpy and matplotlib. For trend lines, use numpy.polyfit instead of scipy.stats."""),
         HumanMessage(content=prompt)
     ]
     
-    # Get response and extract code
     response = llm.invoke(messages)
-    full_response = response.content
-    
-    # Try to extract just the code block from the response
-    import re
-    code_match = re.search(r'python\s+(.*?)\s+', full_response, re.DOTALL)
-    
-    if code_match:
-        # Found a code block
-        generated_code = code_match.group(1)
-    else:
-        # No code block found, try to use the full response
-        generated_code = full_response
-    
-    # Save the generated code
-    file_path = "src/generated_graph.py"
-    with open(file_path, "w") as f:
-        f.write(generated_code)
-    
-    # Extract metadata
-    chart_info = {
-        "code": generated_code,
-        "query": user_query,
-        "title": extract_title(generated_code),
-        "chart_type": detect_chart_type(generated_code),
-        "x_label": extract_axis_label(generated_code, "x"),
-        "y_label": extract_axis_label(generated_code, "y")
-    }
-    
-    return chart_info
+    code = extract_code_from_response(response.content)
+    return code.strip()
 
-def extract_title(code):
-    """Extract the title from the matplotlib code"""
-    import re
-    title_match = re.search(r'\.title\([\'"](.+?)[\'"]\)', code)
-    if title_match:
-        return title_match.group(1)
-    return "Generated Visualization"
 
-def detect_chart_type(code):
-    """Detect the chart type from the matplotlib code"""
-    chart_types = {
-        r'\.plot\(': "Line Chart",
-        r'\.scatter\(': "Scatter Plot",
-        r'\.bar\(': "Bar Chart",
-        r'\.barh\(': "Horizontal Bar Chart",
-        r'\.hist\(': "Histogram",
-        r'\.pie\(': "Pie Chart",
-        r'\.boxplot\(': "Box Plot",
-        r'\.violinplot\(': "Violin Plot",
-        r'\.heatmap\(': "Heatmap",
-    }
-    
-    for pattern, chart_type in chart_types.items():
-        import re
-        if re.search(pattern, code):
-            return chart_type
-    
-    return "Custom Chart"
-
-def extract_axis_label(code, axis):
-    """Extract axis label from the matplotlib code"""
-    import re
-    if axis.lower() == "x":
-        label_match = re.search(r'\.xlabel\([\'"](.+?)[\'"]\)', code)
-    else:
-        label_match = re.search(r'\.ylabel\([\'"](.+?)[\'"]\)', code)
+def execute_visualization_code(code: str):
+    """Execute the generated visualization code and return base64 image"""
+    try:
+        # Clear any existing plots
+        plt.clf()
+        plt.close('all')
         
-    if label_match:
-        return label_match.group(1)
-    return f"{axis.upper()}-axis"
+        # Create namespace with required imports
+        namespace = {
+            'plt': plt,
+            'np': np,
+        }
+        
+        # Print code for debugging
+        print("Executing code:\n", code)
+        
+        # Execute the code
+        exec(code, namespace)
+        
+        # Convert plot to base64
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', dpi=300, bbox_inches='tight')
+        buf.seek(0)
+        img_str = base64.b64encode(buf.getvalue()).decode('utf-8')
+        
+        # Clean up
+        plt.close('all')
+        
+        return img_str
+    except Exception as e:
+        raise Exception(f"Error executing visualization code: {str(e)}\nCode:\n{code}")
 
 @app.post("/plot")
 async def generate_plot(request: PlotRequest):
     """Generate a plot based on the user's query."""
     try:
-        # Generating data using Gemini
-        data_config = generate_data_from_gemini(request.query)
+        # Get visualization code from Gemini
+        code = get_visualization_code(request.query)
         
-        # Create visualization and convert to base64
-        base64_image = create_visualization(data_config)
+        # Execute the code and get base64 image
+        base64_image = execute_visualization_code(code)
         
-        # Return the base64 encoded image
-        return {"image": base64_image, "config": data_config}
+        # Extract chart type from code (simple heuristic)
+        chart_type = "line"
+        if "plt.bar" in code:
+            chart_type = "bar"
+        elif "plt.scatter" in code:
+            chart_type = "scatter"
+        elif "plt.pie" in code:
+            chart_type = "pie"
+        
+        # Return the response
+        return {
+            "image": base64_image,
+            "config": {
+                "title": f"Visualization for: {request.query}",
+                "chart_type": chart_type,
+                "x_label": "X-axis",
+                "y_label": "Y-axis"
+            }
+        }
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
