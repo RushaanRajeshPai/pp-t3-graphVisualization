@@ -49,14 +49,6 @@ function App() {
           <label htmlFor="query" className="block mb-2">
             Enter your visualization query:
           </label>
-          {/* <input
-            type="textarea"
-            id="query"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="e.g., Create a bar chart of monthly sales data"
-            className="w-full p-2 border rounded"
-          /> */}
           <textarea
             id="w3review"
             name="w3review"
