@@ -1,713 +1,3 @@
-# import matplotlib.pyplot as plt
-# from langchain_google_genai import ChatGoogleGenerativeAI
-# from langchain.schema import SystemMessage, HumanMessage
-# import os
-# import sys
-# import importlib
-# import io
-# import base64
-# from fastapi import FastAPI, HTTPException
-# from fastapi.middleware.cors import CORSMiddleware
-# from pydantic import BaseModel
-# import numpy as np
-# import re
-
-# app = FastAPI()
-
-# # Add CORS middleware
-# app.add_middleware(
-#     CORSMiddleware,
-#     allow_origins=["*"],
-#     allow_credentials=True,
-#     allow_methods=["*"],
-#     allow_headers=["*"],
-# )
-
-# class PlotRequest(BaseModel):
-#     query: str
-
-# # Set Google API key
-# os.environ["GOOGLE_API_KEY"] = "AIzaSyDQcmV2pdj6Z2gSlCrWHfjojwyfOlBIv0Y"
-
-# # Initialize LLM
-# llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash")
-
-# # def extract_code_from_response(response_text: str) -> str:
-    
-    
-# #     code_match = re.search(r'python\n(.*?)\n', response_text, re.DOTALL)
-# #     if code_match:
-# #         return code_match.group(1)
-    
-    
-# #     code_match = re.search(r'(.*?)', response_text, re.DOTALL)
-# #     if code_match:
-# #         return code_match.group(1)
-    
-    
-# #     return response_text
-
-# def extract_code_from_response(response_text: str) -> str:
-#     # Look for code blocks with ```python ... ``` format
-#     code_block_match = re.search(r'```python\s+(.*?)\s+```', response_text, re.DOTALL)
-#     if code_block_match:
-#         return code_block_match.group(1).strip()
-    
-#     # If no code block found, look for code sections with "python" marker
-#     code_section_match = re.search(r'python\s+(.*?)(?:\n\n|$)', response_text, re.DOTALL)
-#     if code_section_match:
-#         return code_section_match.group(1).strip()
-    
-#     # If still nothing found, just return the whole response as a fallback
-#     # but print a warning for debugging
-#     print("WARNING: Could not extract code block from response, using full response.")
-#     return response_text.strip()
-
-# def get_visualization_code(query: str):
-#     """Get visualization code from Gemini"""
-#     prompt = f"""
-#     Generate Python code for the following visualization request: {query}
-
-#     Requirements:
-#     1. Use ONLY matplotlib and numpy (DO NOT use scipy or other libraries)
-#     2. For trend lines, use numpy.polyfit instead of scipy.stats
-#     3. Include all necessary imports at the top
-#     4. Create sample data arrays that MUST have exactly the same length
-#     5. Add proper title, labels, and grid
-#     6. Make the visualization clear and professional
-#     7. DO NOT include plt.show() or plt.savefig()
-#     8. Use plt.figure(figsize=(15, 5)) for wide multi-panel plots
-
-#     Example format:
-#     python
-#     import matplotlib.pyplot as plt
-#     import numpy as np
-
-#     # Create figure
-#     plt.figure(figsize=(15, 5))
-
-#     # For trend lines, use:
-#     coefficients = np.polyfit(x, y, 1)
-#     trend_line = coefficients[0] * x + coefficients[1]
-    
-#     """
-    
-#     messages = [
-#         SystemMessage(content="""You are a Python data visualization expert. Generate only executable matplotlib code.
-#         IMPORTANT: Use only numpy and matplotlib. For trend lines, use numpy.polyfit instead of scipy.stats."""),
-#         HumanMessage(content=prompt)
-#     ]
-    
-#     response = llm.invoke(messages)
-#     code = extract_code_from_response(response.content)
-#     return code.strip()
-
-
-# def execute_visualization_code(code: str):
-#     """Execute the generated visualization code and return base64 image"""
-#     try:
-#         # Clear any existing plots
-#         plt.clf()
-#         plt.close('all')
-        
-#         # Create namespace with required imports
-#         namespace = {
-#             'plt': plt,
-#             'np': np,
-#         }
-        
-#         # Print code for debugging
-#         print("Executing code:\n", code)
-        
-#         # Execute the code
-#         exec(code, namespace)
-        
-#         # Convert plot to base64
-#         buf = io.BytesIO()
-#         plt.savefig(buf, format='png', dpi=300, bbox_inches='tight')
-#         buf.seek(0)
-#         img_str = base64.b64encode(buf.getvalue()).decode('utf-8')
-        
-#         # Clean up
-#         plt.close('all')
-        
-#         return img_str
-#     except Exception as e:
-#         raise Exception(f"Error executing visualization code: {str(e)}\nCode:\n{code}")
-
-# @app.post("/plot")
-# async def generate_plot(request: PlotRequest):
-#     """Generate a plot based on the user's query."""
-#     try:
-#         # Get visualization code from Gemini
-#         code = get_visualization_code(request.query)
-        
-#         # Execute the code and get base64 image
-#         base64_image = execute_visualization_code(code)
-        
-#         # Extract chart type from code (simple heuristic)
-#         chart_type = "line"
-#         if "plt.bar" in code:
-#             chart_type = "bar"
-#         elif "plt.scatter" in code:
-#             chart_type = "scatter"
-#         elif "plt.pie" in code:
-#             chart_type = "pie"
-        
-#         # Return the response
-#         return {
-#             "image": base64_image,
-#             "config": {
-#                 "title": f"Visualization for: {request.query}",
-#                 "chart_type": chart_type,
-#                 "x_label": "X-axis",
-#                 "y_label": "Y-axis"
-#             }
-#         }
-    
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=str(e))
-
-# if __name__ == "__main__":
-#     import uvicorn
-#     uvicorn.run(app, host="0.0.0.0", port=8000)
-
-
-
-
-
-#For Chatbot purpose :
-# import matplotlib.pyplot as plt
-# from langchain_google_genai import ChatGoogleGenerativeAI
-# from langchain.schema import SystemMessage, HumanMessage, AIMessage
-# import os
-# import io
-# import base64
-# from fastapi import FastAPI, HTTPException
-# from fastapi.middleware.cors import CORSMiddleware
-# from pydantic import BaseModel
-# import numpy as np
-# import re
-# import uuid
-# from typing import List, Dict, Optional
-
-# app = FastAPI()
-
-# app.add_middleware(
-#     CORSMiddleware,
-#     allow_origins=["*"],
-#     allow_credentials=True,
-#     allow_methods=["*"],
-#     allow_headers=["*"],
-# )
-
-# class ChatMessage(BaseModel):
-#     role: str  
-#     content: str
-#     image: Optional[str] = None
-
-# class ChatSession(BaseModel):
-#     id: str
-#     messages: List[ChatMessage]
-#     current_graph_code: Optional[str] = None
-#     current_graph_data: Optional[Dict] = None
-
-# class ChatRequest(BaseModel):
-#     session_id: Optional[str] = None
-#     message: str
-
-# class NewSessionRequest(BaseModel):
-#     name: Optional[str] = None
-
-# chat_sessions: Dict[str, ChatSession] = {} #chat sessions stored in dict format
-
-# os.environ["GOOGLE_API_KEY"] = "AIzaSyDQcmV2pdj6Z2gSlCrWHfjojwyfOlBIv0Y"
-# llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash")
-
-# def extract_code_from_response(response_text: str) -> str:
-#     # Look for code blocks with ```python ... ``` format
-#     code_block_match = re.search(r'```python\s+(.*?)\s+```', response_text, re.DOTALL)
-#     if code_block_match:
-#         return code_block_match.group(1).strip()
-    
-#     # If no code block found, look for code sections with "python" marker
-#     code_section_match = re.search(r'python\s+(.*?)(?:\n\n|$)', response_text, re.DOTALL)
-#     if code_section_match:
-#         return code_section_match.group(1).strip()
-    
-#     # If still nothing found, just return the whole response as a fallback
-#     print("WARNING: Could not extract code block from response, using full response.")
-#     return response_text.strip()
-
-# def get_visualization_code(query: str):
-#     """Get visualization code from Gemini"""
-#     prompt = f"""
-#     Generate Python code for the following visualization request: {query}
-
-#     Requirements:
-#     1. Use ONLY matplotlib and numpy (DO NOT use scipy or other libraries)
-#     2. For trend lines, use numpy.polyfit instead of scipy.stats
-#     3. Include all necessary imports at the top
-#     4. Create sample data arrays that MUST have exactly the same length
-#     5. Add proper title, labels, and grid
-#     6. Make the visualization clear and professional
-#     7. DO NOT include plt.show() or plt.savefig()
-#     8. Use plt.figure(figsize=(15, 5)) for wide multi-panel plots
-#     9. SAVE THE ACTUAL DATA VALUES you generate in comments at the bottom of the code for later reference
-#     """
-    
-#     messages = [
-#         SystemMessage(content="""You are a Python data visualization expert. Generate only executable matplotlib code.
-#         IMPORTANT: Use only numpy and matplotlib. For trend lines, use numpy.polyfit instead of scipy.stats."""),
-#         HumanMessage(content=prompt)
-#     ]
-    
-#     response = llm.invoke(messages)
-#     code = extract_code_from_response(response.content)
-#     return code.strip()
-
-# def execute_visualization_code(code: str):
-#     """Execute the generated visualization code and return base64 image"""
-#     try:
-#         plt.clf()
-#         plt.close('all')
-#         namespace = {
-#             'plt': plt,
-#             'np': np,
-#         }
-        
-#         print("Executing code:\n", code) #debugging
-#         exec(code, namespace)
-        
-#         #base64 conversion
-#         buf = io.BytesIO()
-#         plt.savefig(buf, format='png', dpi=300, bbox_inches='tight')
-#         buf.seek(0)
-#         img_str = base64.b64encode(buf.getvalue()).decode('utf-8')
-
-#         plt.close('all')
-#         return img_str
-    
-#     except Exception as e:
-#         raise Exception(f"Error executing visualization code: {str(e)}\nCode:\n{code}")
-
-# def extract_chart_info(code: str):
-#     """Extract chart information from the code"""
-#     chart_info = {
-#         "chart_type": "line",
-#         "x_label": "X-axis",
-#         "y_label": "Y-axis",
-#         "title": "Visualization"
-#     }
-    
-#     #chart type
-#     if "plt.bar" in code:
-#         chart_info["chart_type"] = "bar"
-#     elif "plt.scatter" in code:
-#         chart_info["chart_type"] = "scatter"
-#     elif "plt.pie" in code:
-#         chart_info["chart_type"] = "pie"
-#     elif "plt.hist" in code:
-#         chart_info["chart_type"] = "histogram"
-    
-#     title_match = re.search(r'plt\.title\(["\'](.+?)["\']\)', code)
-#     if title_match:
-#         chart_info["title"] = title_match.group(1)
-    
-#     xlabel_match = re.search(r'plt\.xlabel\(["\'](.+?)["\']\)', code)
-#     if xlabel_match:
-#         chart_info["x_label"] = xlabel_match.group(1)
-    
-#     ylabel_match = re.search(r'plt\.ylabel\(["\'](.+?)["\']\)', code)
-#     if ylabel_match:
-#         chart_info["y_label"] = ylabel_match.group(1)
-    
-#     return chart_info
-
-# def answer_graph_question(session_id: str, question: str):
-#     """Use Gemini to answer questions about the current graph"""
-#     session = chat_sessions[session_id]
-    
-#     if not session.current_graph_code or not session.current_graph_data:
-#         return "I don't have any graph data to analyze. Please generate a visualization first."
-
-#     messages = [
-#         SystemMessage(content="""You are a data visualization expert who can analyze and explain graphs. 
-#         When answering questions about a graph, refer to the specific data points, trends, and visual elements in the graph.
-#         Be precise and data-focused in your explanations.""")
-#     ]
-    
-#     code_context = f"""
-#     Here is the code and data for the current visualization:
-#     ```python
-#     {session.current_graph_code}
-#     ```
-    
-#     The visualization has these properties:
-#     - Chart type: {session.current_graph_data['chart_type']}
-#     - Title: {session.current_graph_data['title']}
-#     - X-axis: {session.current_graph_data['x_label']}
-#     - Y-axis: {session.current_graph_data['y_label']}
-#     """
-    
-#     messages.append(HumanMessage(content=code_context))
-#     messages.append(AIMessage(content="I understand the visualization and its data. I'm ready to answer questions about it."))
-#     messages.append(HumanMessage(content=question))
-    
-#     response = llm.invoke(messages)
-#     return response.content
-
-# @app.post("/sessions")
-# async def create_session(request: NewSessionRequest):
-#     """Create a new chat session"""
-#     session_id = str(uuid.uuid4())
-#     chat_sessions[session_id] = ChatSession(
-#         id=session_id,
-#         messages=[],
-#         current_graph_code=None,
-#         current_graph_data=None
-#     )
-#     return {"session_id": session_id}
-
-# @app.get("/sessions")
-# async def list_sessions():
-#     """List all chat sessions"""
-#     return {
-#         "sessions": [
-#             {"id": session_id, "message_count": len(session.messages)}
-#             for session_id, session in chat_sessions.items()
-#         ]
-#     }
-
-# @app.get("/sessions/{session_id}")
-# async def get_session(session_id: str):
-#     """Get a specific chat session"""
-#     if session_id not in chat_sessions:
-#         raise HTTPException(status_code=404, detail="Session not found")
-    
-#     return chat_sessions[session_id]
-
-# @app.post("/chat")
-# async def chat(request: ChatRequest):
-#     """Process a chat message and generate a response"""
-#     if not request.session_id or request.session_id not in chat_sessions: #if no session, creates a new one
-#         session_id = str(uuid.uuid4())
-#         chat_sessions[session_id] = ChatSession(
-#             id=session_id,
-#             messages=[],
-#             current_graph_code=None,
-#             current_graph_data=None
-#         )
-#     else:
-#         session_id = request.session_id
-    
-#     session = chat_sessions[session_id]
-    
-#     user_message = ChatMessage(role="user", content=request.message) #add msg to history
-#     session.messages.append(user_message)
-    
-#     # Check if this is a visualization request
-#     is_visualization_request = any(keyword in request.message.lower() for keyword in 
-#                                  ["create", "generate", "plot", "chart", "graph", "visualization", "visualize", "show me"])
-    
-#     try:
-#         if is_visualization_request:
-#             # Generate visualization
-#             code = get_visualization_code(request.message)
-#             base64_image = execute_visualization_code(code)
-#             chart_info = extract_chart_info(code)
-#             chart_info["title"] = chart_info.get("title", f"Visualization for: {request.message[:50]}...")
-            
-#             # Store graph data in session
-#             session.current_graph_code = code
-#             session.current_graph_data = chart_info
-            
-#             # Create assistant response
-#             response_text = f"I've created the visualization based on your request. Here's what the graph shows:\n\n"
-#             response_text += f"- This is a {chart_info['chart_type']} chart titled '{chart_info['title']}'\n"
-#             response_text += f"- The x-axis represents {chart_info['x_label']}\n"
-#             response_text += f"- The y-axis represents {chart_info['y_label']}\n\n"
-#             response_text += "You can ask me specific questions about this visualization now."
-            
-#             assistant_message = ChatMessage(
-#                 role="assistant", 
-#                 content=response_text,
-#                 image=base64_image
-#             )
-#         else:
-#             # Answer a question about the existing graph
-#             response_text = answer_graph_question(session_id, request.message)
-#             assistant_message = ChatMessage(role="assistant", content=response_text)
-        
-#         # Add assistant response to history
-#         session.messages.append(assistant_message)
-        
-#         return {
-#             "session_id": session_id,
-#             "response": assistant_message,
-#             "chart_info": session.current_graph_data if is_visualization_request else None
-#         }
-    
-#     except Exception as e:
-#         error_message = f"Error processing your request: {str(e)}"
-#         error_response = ChatMessage(role="assistant", content=error_message)
-#         session.messages.append(error_response)
-        
-#         return {
-#             "session_id": session_id,
-#             "response": error_response,
-#             "error": str(e)
-#         }
-
-# @app.delete("/sessions/{session_id}")
-# async def delete_session(session_id: str):
-#     """Delete a chat session"""
-#     if session_id not in chat_sessions:
-#         raise HTTPException(status_code=404, detail="Session not found")
-    
-#     del chat_sessions[session_id]
-#     return {"status": "success", "message": f"Session {session_id} deleted"}
-
-# if __name__ == "__main__":
-#     import uvicorn
-#     uvicorn.run(app, host="0.0.0.0", port=8000)
-
-
-
-# import os
-# import base64
-# import io
-# from fastapi import FastAPI, HTTPException
-# from fastapi.middleware.cors import CORSMiddleware
-# from pydantic import BaseModel
-# import google.generativeai as genai
-# import matplotlib.pyplot as plt
-# import numpy as np
-
-# GEMINI_API_KEY = "AIzaSyDQcmV2pdj6Z2gSlCrWHfjojwyfOlBIv0Y"
-
-# genai.configure(api_key=GEMINI_API_KEY)
-
-# app = FastAPI()
-
-# app.add_middleware(
-#     CORSMiddleware,
-#     allow_origins=["*"],  
-#     allow_credentials=True,
-#     allow_methods=["*"],
-#     allow_headers=["*"],
-# )
-
-# # Model for chat request
-# class ChatRequest(BaseModel):
-#     query: str
-#     chat_history: list = []
-
-# # Model for chat response
-# class ChatResponse(BaseModel):
-#     response: str
-#     graph: str = None  
-
-# # Function to generate graph 
-# def generate_graph(query):
-    
-#     try:
-#         plt.figure(figsize=(10, 6))
-#         x = np.linspace(0, 10, 100)
-#         y = np.sin(x)
-#         plt.plot(x, y)
-#         plt.title(f"Graph for Query: {query}")
-#         plt.xlabel('X Axis')
-#         plt.ylabel('Y Axis')
-
-#         buffer = io.BytesIO()
-#         plt.savefig(buffer, format='png')
-#         buffer.seek(0)
- 
-#         graph_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
-#         plt.close()
-        
-#         return graph_base64
-    
-#     except Exception as e:
-#         print(f"Graph generation error: {e}")
-#         return None
-
-# # Chat endpoint with comprehensive error handling
-# @app.post("/chat")
-# async def chat(request: ChatRequest):
-#     try:
-#         model = genai.GenerativeModel('gemini-1.5-flash')
-#         response = model.generate_content(request.query)
-#         graph_base64 = generate_graph(request.query)
-        
-#         return ChatResponse(
-#             response=response.text, 
-#             graph=graph_base64
-#         )
-    
-#     except Exception as e:
-#         import traceback
-#         print(f"Detailed Error: {traceback.format_exc()}")
-#         raise HTTPException(
-#             status_code=500, 
-#             detail=f"Internal server error: {str(e)}"
-#         )
-
-# import io
-# import base64
-# import re
-# import ast
-# from fastapi import FastAPI, HTTPException
-# from fastapi.middleware.cors import CORSMiddleware
-# from pydantic import BaseModel
-# from typing import List, Optional
-# import matplotlib.pyplot as plt
-# import google.generativeai as genai
-
-# # ✅ Configure Gemini
-# GEMINI_API_KEY = "AIzaSyDQcmV2pdj6Z2gSlCrWHfjojwyfOlBIv0Y"  # Replace this with your actual key
-# genai.configure(api_key=GEMINI_API_KEY)
-
-# # ✅ FastAPI App
-# app = FastAPI()
-
-# # ✅ Allow requests from frontend
-# app.add_middleware(
-#     CORSMiddleware,
-#     allow_origins=["*"],
-#     allow_credentials=True,
-#     allow_methods=["*"],
-#     allow_headers=["*"],
-# )
-
-# # ✅ Request/Response Models
-# class Message(BaseModel):
-#     role: str
-#     content: str
-#     graph_base64: Optional[str] = None
-
-# class ChatRequest(BaseModel):
-#     query: str
-#     chat_history: List[Message] = []
-
-# class ChatResponse(BaseModel):
-#     response: str
-#     graph_base64: Optional[str] = None
-
-# # ✅ Graph Generation Function
-# def generate_graph(chart_type: str, data):
-#     plt.figure(figsize=(10, 6))
-
-#     # Safely extract labels and values
-#     if isinstance(data, dict):
-#         labels = list(data.keys())
-#         values = list(data.values())
-
-#         # ✅ Flatten values if they're lists of lists or nested
-#         if any(isinstance(v, list) for v in values):
-#             values = [v[0] if isinstance(v, list) else v for v in values]
-
-#     elif isinstance(data, list):
-#         labels = list(range(len(data)))
-#         values = data
-
-#     else:
-#         # Fallback dummy values
-#         labels = ['A', 'B', 'C']
-#         values = [10, 20, 30]
-
-#     # ✅ Sanity check
-#     if len(labels) != len(values):
-#         raise ValueError("Labels and values length mismatch")
-
-#     # Plot based on chart type
-#     if chart_type == "bar":
-#         plt.bar(labels, values)
-#     elif chart_type == "line":
-#         plt.plot(labels, values, marker='o')
-#     elif chart_type == "pie":
-#         plt.pie(values, labels=labels, autopct='%1.1f%%')
-#     else:
-#         plt.plot(labels, values)
-
-#     plt.title(f"{chart_type.capitalize()} Chart")
-#     buf = io.BytesIO()
-#     plt.savefig(buf, format="png")
-#     plt.close()
-#     buf.seek(0)
-#     return base64.b64encode(buf.read()).decode()
-
-
-# # ✅ Main Chat Endpoint
-# @app.post("/chat", response_model=ChatResponse)
-# async def chat(request: ChatRequest):
-#     try:
-#         model = genai.GenerativeModel("gemini-1.5-flash")
-
-#         # Build context-aware prompt
-#         context_messages = "\n".join([
-#             f"{msg.role.capitalize()}: {msg.content}" for msg in request.chat_history
-#         ])
-
-#         full_prompt = f"""
-#         You are a powerful internet-connected data visualization assistant inside a chart-generating web app.
-
-#         Your job is to:
-#         - Understand the user's question (on any topic: sports, economics, business, health, politics, etc.)
-#         - **Search the internet or use your latest knowledge** to provide real, accurate, and meaningful data
-#         - Decide the **best graph type** (bar, pie, line, etc.)
-#         - Respond **only** in the following format (no extra lines, no explanation):
-
-#         Chart type: bar  
-#         Data: {{ 'Label 1': value, 'Label 2': value, ... }}
-
-#         Important Rules:
-#         - Do NOT use made-up or dummy values like 0, 1, or 'example'
-#         - Always provide real statistics or approximations based on trusted knowledge
-#         - If recent data is not available, say: "Chart type: none" and "Data: none"
-
-#         Context (chat history):
-#         {context_messages}
-
-#         User Query:
-#         {request.query}
-#         """
-
-
-
-#         # Gemini reply
-#         gemini_response = model.generate_content(full_prompt)
-#         text = gemini_response.text or "No response."
-
-#         # Extract chart type
-#         type_match = re.search(r'chart type:\s*(\w+)', text, re.IGNORECASE)
-#         chart_type = type_match.group(1).strip().lower() if type_match else "bar"
-
-#         # Extract data block
-#         data_match = re.search(r'data:\s*(\{.*?\}|\[.*?\])', text, re.IGNORECASE | re.DOTALL)
-#         data_raw = data_match.group(1) if data_match else "[10, 20, 30]"
-#         try:
-#             data = ast.literal_eval(data_raw)
-#         except Exception as eval_error:
-#             print(f"Data parsing error: {eval_error}")
-#             # Fallback if data is malformed
-#             data = [10, 20, 30]
-#             chart_type = "bar"
-
-
-#         # Generate graph
-#         graph_base64 = generate_graph(chart_type, data)
-
-#         return ChatResponse(
-#             response=text,
-#             graph_base64=graph_base64
-#         )
-
-#     except Exception as e:
-#         print(f"Server error: {e}")
-#         raise HTTPException(status_code=500, detail="Internal Server Error")
-
 import base64
 from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
@@ -715,16 +5,16 @@ from pydantic import BaseModel
 import matplotlib.pyplot as plt
 import io
 import google.generativeai as genai
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Optional
 import json
+import numpy as np
+from matplotlib.colors import to_rgba
+import re
+import os
 
-# Configure your API key
-GEMINI_API_KEY = "AIzaSyDQcmV2pdj6Z2gSlCrWHfjojwyfOlBIv0Y"
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "AIzaSyBOKz-eFNXkPDBwTzoo-XCoILuwQqXtS84")
 genai.configure(api_key=GEMINI_API_KEY)
-
 app = FastAPI()
-
-# Configure CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Adjust for production
@@ -732,89 +22,281 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 class Message(BaseModel):
     role: str
     content: str
     image: Optional[str] = None
-
 class ChatRequest(BaseModel):
     messages: List[Message]
     query: str
-
 class ChatResponse(BaseModel):
     response: str
     image: Optional[str] = None
 
-# In-memory storage for chat history
 chat_history = []
 
 def generate_plot(data_description):
-    """Generate a plot based on the AI's understanding of the data."""
+    """Generate a plot based on the AI's description, supporting multiple chart types."""
     try:
-        # This is a simplified placeholder for actual plot generation logic
-        # In a real implementation, you would parse the AI's response to get data points
+        type_match = re.search(r'plot:(\w+)', data_description.lower())
+        if not type_match:
+            raise ValueError("Chart type not specified in the format")
         
-        # Example: Parse a simple line chart description
-        # Format expected: "plot:line,x:[1,2,3,4],y:[10,20,15,25],title:Sample Plot"
-        
-        # For demonstration purposes, let's create a basic plot
+        chart_type = type_match.group(1).lower()
         fig, ax = plt.subplots(figsize=(10, 6))
+        plot_data = {"type": chart_type}
+
+        patterns = {
+            "x": r'x:\[([\d\s,.]+)\]',
+            "y": r'y:\[([\d\s,.]+)\]',
+            "labels": r'labels:\[([\w\s,."\'-]+)\]',
+            "values": r'values:\[([\d\s,.]+)\]',
+            "title": r'title:([\w\s]+)',
+            "colors": r'colors:\[([\w\s,.#\'"-]+)\]',
+            "sizes": r'sizes:\[([\d\s,.]+)\]',
+            "categories": r'categories:\[([\w\s,."\'-]+)\]',
+            "series": r'series:\[([\w\s,."\'-]+)\]'
+        }
+
+        extracted_data = {}
+        for key, pattern in patterns.items():
+            match = re.search(pattern, data_description)
+            if match:
+                if key in ["x", "y", "values", "sizes"]:
+                    extracted_data[key] = [float(x) for x in match.group(1).split(',')]
+                elif key in ["labels", "categories", "series", "colors"]:
+                    data_str = match.group(1)
+                    extracted_data[key] = [item.strip().strip('"\'') for item in data_str.split(',')]
+                else:
+                    extracted_data[key] = match.group(1).strip()
         
-        if "line" in data_description.lower():
-            # Extract x and y data from the description
-            import re
-            x_match = re.search(r'x:\[([\d\s,.]+)\]', data_description)
-            y_match = re.search(r'y:\[([\d\s,.]+)\]', data_description)
-            title_match = re.search(r'title:([\w\s]+)', data_description)
-            
-            if x_match and y_match:
-                x_data = [float(x) for x in x_match.group(1).split(',')]
-                y_data = [float(y) for y in y_match.group(1).split(',')]
-                title = title_match.group(1) if title_match else "Generated Plot"
+        # Set default title if not provided
+        title = extracted_data.get("title", f"{chart_type.capitalize()} Chart")
+        
+        # Store extracted data for context
+        plot_data.update(extracted_data)
+        
+        # Create the appropriate chart based on type
+        if chart_type == "line":
+            if "x" in extracted_data and "y" in extracted_data:
+                line = ax.plot(extracted_data["x"], extracted_data["y"], marker='o')
                 
-                ax.plot(x_data, y_data, marker='o')
+                # Apply colors if specified
+                if "colors" in extracted_data and len(extracted_data["colors"]) > 0:
+                    line[0].set_color(extracted_data["colors"][0])
+                
                 ax.set_title(title)
                 ax.grid(True)
             else:
-                ax.text(0.5, 0.5, "Unable to parse plot data", ha='center', va='center')
-        elif "bar" in data_description.lower():
-            # Similar parsing for bar charts
-            import re
-            labels_match = re.search(r'labels:\[([\w\s,."\'-]+)\]', data_description)
-            values_match = re.search(r'values:\[([\d\s,.]+)\]', data_description)
-            title_match = re.search(r'title:([\w\s]+)', data_description)
-            
-            if labels_match and values_match:
-                # Clean and parse labels
-                labels_str = labels_match.group(1)
-                labels = [label.strip().strip('"\'') for label in labels_str.split(',')]
+                raise ValueError("Line chart requires x and y data")
                 
-                values = [float(v) for v in values_match.group(1).split(',')]
-                title = title_match.group(1) if title_match else "Bar Chart"
+        elif chart_type == "bar":
+            if "labels" in extracted_data and "values" in extracted_data:
+                labels = extracted_data["labels"]
+                values = extracted_data["values"]
                 
-                ax.bar(labels, values)
+                # Use specified colors or default
+                colors = extracted_data.get("colors", None)
+                bars = ax.bar(labels, values, color=colors)
+                
+                ax.set_title(title)
+                # Rotate labels if there are many
+                if len(labels) > 5:
+                    plt.xticks(rotation=45, ha='right')
+            else:
+                raise ValueError("Bar chart requires labels and values")
+                
+        elif chart_type == "pie":
+            if "labels" in extracted_data and "values" in extracted_data:
+                labels = extracted_data["labels"]
+                values = extracted_data["values"]
+                
+                # Use specified colors or default
+                colors = extracted_data.get("colors", None)
+                
+                # Create pie chart
+                ax.pie(values, labels=labels, autopct='%1.1f%%', colors=colors)
+                ax.set_title(title)
+                ax.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle
+            else:
+                raise ValueError("Pie chart requires labels and values")
+                
+        elif chart_type == "scatter":
+            if "x" in extracted_data and "y" in extracted_data:
+                x = extracted_data["x"]
+                y = extracted_data["y"]
+                
+                # Optional size parameter
+                sizes = extracted_data.get("sizes", [50] * len(x))
+                colors = extracted_data.get("colors", ["blue"] * len(x))
+                
+                # Handle case where we have fewer sizes or colors than points
+                if len(sizes) < len(x):
+                    sizes = sizes * (len(x) // len(sizes) + 1)
+                    sizes = sizes[:len(x)]
+                if len(colors) < len(x):
+                    colors = colors * (len(x) // len(colors) + 1)
+                    colors = colors[:len(x)]
+                
+                scatter = ax.scatter(x, y, s=sizes, c=colors, alpha=0.7)
+                ax.set_title(title)
+                ax.grid(True)
+            else:
+                raise ValueError("Scatter chart requires x and y data")
+                
+        elif chart_type == "histogram":
+            if "values" in extracted_data:
+                values = extracted_data["values"]
+                bins = extracted_data.get("bins", 10)  # Default 10 bins if not specified
+                
+                # Use specified colors or default
+                color = extracted_data.get("colors", ["blue"])[0] if "colors" in extracted_data else "blue"
+                
+                hist = ax.hist(values, bins=bins, color=color, alpha=0.7, edgecolor="black")
+                ax.set_title(title)
+                ax.grid(True)
+            else:
+                raise ValueError("Histogram requires values data")
+                
+        elif chart_type == "area":
+            if "x" in extracted_data and "y" in extracted_data:
+                x = extracted_data["x"]
+                y = extracted_data["y"]
+                
+                # Use specified colors or default
+                color = extracted_data.get("colors", ["blue"])[0] if "colors" in extracted_data else "blue"
+                
+                ax.fill_between(x, y, color=color, alpha=0.5)
+                ax.plot(x, y, color=color)
+                ax.set_title(title)
+                ax.grid(True)
+            else:
+                raise ValueError("Area chart requires x and y data")
+                
+        elif chart_type == "heatmap":
+            if "values" in extracted_data:
+                # Assuming values is a flattened matrix
+                values = extracted_data["values"]
+                
+                # Try to determine matrix dimensions
+                size = int(np.sqrt(len(values)))
+                if size * size != len(values):
+                    # If not a perfect square, try to use provided dimensions
+                    x_len = len(extracted_data.get("x", []))
+                    y_len = len(extracted_data.get("y", []))
+                    
+                    if x_len * y_len == len(values):
+                        size_x, size_y = x_len, y_len
+                    else:
+                        raise ValueError("Cannot determine heatmap dimensions. Please provide square data or explicit dimensions")
+                else:
+                    size_x, size_y = size, size
+                
+                # Reshape into a 2D matrix
+                matrix = np.array(values).reshape(size_y, size_x)
+                
+                # Create heatmap
+                heatmap = ax.imshow(matrix, cmap='viridis')
+                fig.colorbar(heatmap, ax=ax)
+                
+                # Add labels if provided
+                if "x" in extracted_data and len(extracted_data["x"]) == size_x:
+                    plt.xticks(range(size_x), extracted_data["x"])
+                if "y" in extracted_data and len(extracted_data["y"]) == size_y:
+                    plt.yticks(range(size_y), extracted_data["y"])
+                
                 ax.set_title(title)
             else:
-                ax.text(0.5, 0.5, "Unable to parse bar chart data", ha='center', va='center')
+                raise ValueError("Heatmap requires values data")
+        
+        elif chart_type == "boxplot":
+            if "values" in extracted_data:
+                # For single boxplot
+                ax.boxplot(extracted_data["values"])
+                ax.set_title(title)
+                
+                # Add categories if provided
+                if "categories" in extracted_data:
+                    plt.xticks([1], [extracted_data["categories"][0]])
+            elif "categories" in extracted_data and len(extracted_data["categories"]) > 0:
+                # For multiple boxplots, we need data for each category
+                # Example: categories=["A","B"], values_A=[1,2,3], values_B=[4,5,6]
+                data = []
+                categories = extracted_data["categories"]
+                
+                for category in categories:
+                    cat_key = f"values_{category}"
+                    cat_match = re.search(f'{cat_key}:\[([\d\s,.]+)\]', data_description)
+                    
+                    if cat_match:
+                        cat_data = [float(x) for x in cat_match.group(1).split(',')]
+                        data.append(cat_data)
+                    else:
+                        raise ValueError(f"Missing data for category {category}")
+                
+                ax.boxplot(data)
+                ax.set_title(title)
+                plt.xticks(range(1, len(categories) + 1), categories)
+            else:
+                raise ValueError("Boxplot requires values data or category-specific data")
+                
+        elif chart_type == "radar" or chart_type == "spider":
+            if "categories" in extracted_data and "values" in extracted_data:
+                categories = extracted_data["categories"]
+                values = extracted_data["values"]
+                
+                if len(categories) != len(values):
+                    raise ValueError("Number of categories must match number of values for radar chart")
+                
+                # Create a figure with polar projection
+                plt.close(fig)  # Close the previous figure
+                fig, ax = plt.subplots(figsize=(10, 8), subplot_kw=dict(polar=True))
+                
+                # Number of variables
+                N = len(categories)
+                
+                # What angles to place each category
+                angles = [n / float(N) * 2 * np.pi for n in range(N)]
+                angles += angles[:1]  # Close the loop
+                
+                # Values need to close the loop as well
+                values += values[:1]
+                
+                # Draw the chart
+                ax.plot(angles, values, linewidth=2, linestyle='solid')
+                ax.fill(angles, values, alpha=0.25)
+                
+                # Fix axis to go in the right order and start at 12 o'clock
+                ax.set_theta_offset(np.pi / 2)
+                ax.set_theta_direction(-1)
+                
+                # Draw category labels on the axes
+                plt.xticks(angles[:-1], categories)
+                
+                ax.set_title(title)
+            else:
+                raise ValueError("Radar chart requires categories and values")
+                
         else:
-            ax.text(0.5, 0.5, "Unknown chart type requested", ha='center', va='center')
+            raise ValueError(f"Unsupported chart type: {chart_type}")
         
         # Convert plot to base64 string
         buf = io.BytesIO()
-        plt.savefig(buf, format='png')
+        plt.tight_layout()
+        plt.savefig(buf, format='png', dpi=100)
         buf.seek(0)
         plt.close(fig)
         
         # Convert to base64 string
         img_base64 = base64.b64encode(buf.read()).decode('utf-8')
-        return img_base64
+        return img_base64, plot_data
     
     except Exception as e:
         print(f"Error generating plot: {str(e)}")
         # Create an error image
         fig, ax = plt.subplots(figsize=(10, 6))
         ax.text(0.5, 0.5, f"Error generating plot: {str(e)}", ha='center', va='center')
+        fig.tight_layout()
         
         buf = io.BytesIO()
         plt.savefig(buf, format='png')
@@ -822,7 +304,7 @@ def generate_plot(data_description):
         plt.close(fig)
         
         img_base64 = base64.b64encode(buf.read()).decode('utf-8')
-        return img_base64
+        return img_base64, {"error": str(e)}
 
 def format_chat_history_for_gemini(messages):
     """Format chat history for Gemini API."""
@@ -856,19 +338,45 @@ async def process_chat(request: ChatRequest):
         # Prepare conversation for Gemini
         gemini_messages = format_chat_history_for_gemini(request.messages)
         
-        # Add system message to guide Gemini
         system_message = """
-        You are a data visualization assistant. When asked for data visualization:
-        1. Search for relevant data based on the query
-        2. Format your response with clear data points for plotting
-        3. Use format: plot:CHART_TYPE,x:[values],y:[values],title:TITLE for line charts
-           or plot:bar,labels:[labels],values:[values],title:TITLE for bar charts
-        4. If a follow-up question refers to previous visualizations, use that context
-        5. Always provide a brief explanation with your visualization
-        
-        Keep responses focused on data visualization and related explanations.
+        You are an expert data visualization assistant with access to a wide range of data. Your primary function is to create visualizations from data. For EVERY query:
+
+        1. ALWAYS generate sample data that reasonably represents what the user is asking for, even if you don't have real-time or specific data access.
+
+        2. FORMAT YOUR RESPONSE properly with:
+        - An introduction explaining the visualization 
+        - The plot specification in machine-parseable format
+        - Additional context/insights about the data
+
+        3. For LINE CHARTS use:
+        plot:line,x:[1,2,3,...],y:[10,20,30,...],title:Your Title
+
+        4. For BAR CHARTS use:
+        plot:bar,labels:["Label1","Label2",...],values:[10,20,...],title:Your Title
+
+        5. For PIE CHARTS use:
+        plot:pie,labels:["Label1","Label2",...],values:[30,70,...],title:Your Title
+
+        6. For SCATTER PLOTS use:
+        plot:scatter,x:[1,2,3,...],y:[10,20,30,...],title:Your Title
+
+        7. If you need to generate random or example data:
+        - Use realistic ranges for the domain
+        - Create plausible patterns and relationships
+        - Include around 5-10 data points unless specified otherwise
+
+        8. For follow-up questions:
+        - Reference previously generated visualizations
+        - Reuse previous data with requested modifications
+        - Maintain consistent context throughout the conversation
+
+        9. When handling time series, use chronological format for dates/times.
+
+        10. For sports, economic, or technical data where exact values are unknown, always provide representative sample data with a clear explanation that these are approximate/sample values.
+
+        NEVER respond with "I don't have access to real-time data" or similar phrases. Instead, generate plausible sample data and clearly label it as illustrative.
         """
-        
+                
         # Initialize Gemini model
         model = genai.GenerativeModel('gemini-1.5-flash')
         
@@ -885,19 +393,16 @@ async def process_chat(request: ChatRequest):
         # Check if response contains plot data
         plot_data = None
         if "plot:" in ai_response:
-            # Extract plot specification part
             plot_spec_start = ai_response.find("plot:")
             plot_spec_end = ai_response.find("\n", plot_spec_start)
-            if plot_spec_end == -1:  # If no newline, take until the end
+            if plot_spec_end == -1:
                 plot_spec_end = len(ai_response)
             
             plot_specification = ai_response[plot_spec_start:plot_spec_end]
-            plot_image = generate_plot(plot_specification)
+            plot_image, plot_data = generate_plot(plot_specification)  # Unpack both values
             
-            # Clean up the response by removing the plot specification
             ai_response = ai_response.replace(plot_specification, "")
             
-            # Add image to chat history
             chat_history.append(Message(
                 role="assistant", 
                 content=ai_response,
