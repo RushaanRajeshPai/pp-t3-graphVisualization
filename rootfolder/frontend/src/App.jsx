@@ -22,6 +22,7 @@ function App() {
     const userMessage = {
       role: 'user',
       content: input,
+      metadata: messages.length > 0 ? messages[messages.length - 1].metadata : null
     };
 
     setMessages((prevMessages) => [...prevMessages, userMessage]);
@@ -35,8 +36,9 @@ function App() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          messages: messages, // Send all messages for context
-          query: input
+          messages: messages, 
+          query: input,
+          previousContext: messages.length > 0 ? messages[messages.length - 1].metadata : null,
         }),
       });
 
@@ -45,11 +47,12 @@ function App() {
       }
 
       const data = await response.json();
-      
+
       const assistantMessage = {
         role: 'assistant',
         content: data.response,
         image: data.image,
+        metadata: data.metadata,  //not sure if needed
       };
 
       setMessages((prevMessages) => [...prevMessages, assistantMessage]);
@@ -70,25 +73,30 @@ function App() {
   return (
     <div className="chat-container">
       <header className="chat-header">
-        <h1>Data Visualization Chatbot</h1>
+        <h1>Graph visualization chatbot</h1>
       </header>
-      
+
       <div className="messages-container">
         {messages.length === 0 ? (
           <div className="welcome-message">
-            <p>Ask me to visualize data for you. For example:</p>
+            <p>Visualize data by asking query:</p>
           </div>
         ) : (
           messages.map((message, index) => (
             <div key={index} className={`message ${message.role}`}>
               <div className="message-content">
                 {message.content}
+                {message.metadata && process.env.NODE_ENV === 'development' && (
+                  <div className="debug-metadata">
+                    <pre>{JSON.stringify(message.metadata, null, 2)}</pre>
+                  </div>
+                )}
               </div>
               {message.image && (
                 <div className="message-image">
-                  <img 
-                    src={`data:image/png;base64,${message.image}`} 
-                    alt="Generated visualization" 
+                  <img
+                    src={`data:image/png;base64,${message.image}`}
+                    alt="Generated visualization"
                   />
                 </div>
               )}
@@ -106,7 +114,7 @@ function App() {
         )}
         <div ref={messagesEndRef} />
       </div>
-      
+
       <form className="input-form" onSubmit={handleSubmit}>
         <input
           type="text"

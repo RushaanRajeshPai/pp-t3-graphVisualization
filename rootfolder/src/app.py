@@ -26,12 +26,14 @@ class Message(BaseModel):
     role: str
     content: str
     image: Optional[str] = None
-class ChatRequest(BaseModel):
+    metadata: Optional[Dict] = None
+class ChatRequest(BaseModel):  #frontend to backend
     messages: List[Message]
     query: str
-class ChatResponse(BaseModel):
+class ChatResponse(BaseModel): #backend to frontend
     response: str
     image: Optional[str] = None
+    metadata: Optional[Dict] = None
 
 chat_history = []
 
@@ -70,10 +72,7 @@ def generate_plot(data_description):
                 else:
                     extracted_data[key] = match.group(1).strip()
         
-        # Set default title if not provided
         title = extracted_data.get("title", f"{chart_type.capitalize()} Chart")
-        
-        # Store extracted data for context
         plot_data.update(extracted_data)
         
         # Create the appropriate chart based on type
@@ -311,14 +310,17 @@ def format_chat_history_for_gemini(messages):
     formatted_history = []
     
     for msg in messages:
-        content = [{"text": msg.content}]
+        context_text = msg.content
+        if msg.metadata:
+            context_text += f"\nContext data: {json.dumps(msg.metadata)}"
         
-        # If there's an image in the message
+        content = [{"text": context_text}]
+        
         if msg.image:
             content.append({
                 "inline_data": {
                     "mime_type": "image/png",
-                    "data": msg.image  # Base64 encoded image
+                    "data": msg.image  #base64 string format
                 }
             })
             
@@ -332,8 +334,12 @@ def format_chat_history_for_gemini(messages):
 @app.post("/plot", response_model=ChatResponse)
 async def process_chat(request: ChatRequest):
     try:
-        # Add the new user query to the chat history
-        chat_history.append(Message(role="user", content=request.query))
+        previous_context = [m.metadata for m in request.messages if m.metadata]
+        chat_history.append(Message(
+            role="user", 
+            content=request.query,
+            metadata={"previous_context": previous_context} if previous_context else None
+        ))
         
         # Prepare conversation for Gemini
         gemini_messages = format_chat_history_for_gemini(request.messages)
@@ -379,15 +385,23 @@ async def process_chat(request: ChatRequest):
                 
         # Initialize Gemini model
         model = genai.GenerativeModel('gemini-1.5-flash')
+
+        context_system_message = system_message
+        if previous_context:
+            context_system_message += f"\n\nPrevious visualization context: {json.dumps(previous_context)}"
         
-        # Add system instruction
-        chat = model.start_chat(history=[
-            {"role": "user", "parts": [{"text": "System instructions: " + system_message}]},
-            {"role": "model", "parts": [{"text": "I'll help with data visualization following those guidelines."}]}
-        ])
+        full_history = [
+            {"role": "user", "parts": [{"text": "System instructions: " + context_system_message}]},
+            {"role": "model", "parts": [{"text": "I'll help with data visualization following those guidelines."}]},
+            *gemini_messages
+        ]
+        
+        chat = model.start_chat(history=full_history)
         
         # Send conversation history and get response
-        gemini_response = chat.send_message([{"text": request.query}])
+        gemini_response = chat.send_message([{
+            "text": f"Using previous context {json.dumps(previous_context) if previous_context else 'None'}, please address: {request.query}"
+        }])
         ai_response = gemini_response.text
         
         # Check if response contains plot data
@@ -406,13 +420,16 @@ async def process_chat(request: ChatRequest):
             chat_history.append(Message(
                 role="assistant", 
                 content=ai_response,
-                image=plot_image
+                image=plot_image,
+                metadata={"plot_data": plot_data}  # Store plot data in metadata
             ))
-            
             return ChatResponse(response=ai_response, image=plot_image)
         else:
-            # No plot to generate, just return the text response
-            chat_history.append(Message(role="assistant", content=ai_response))
+            chat_history.append(Message(
+                role="assistant", 
+                content=ai_response,
+                metadata={"type": "text_only"}
+            ))
             return ChatResponse(response=ai_response)
             
     except Exception as e:
