@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import io
 import base64
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from langchain.prompts import SystemMessagePromptTemplate, HumanMessagePromptTemplate, ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -43,6 +43,7 @@ llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0.1)
 
 # Define the research paper content here (you'll replace this with your actual paper)
 RESEARCH_PAPER_CONTENT = """
+Juarez Monteiro, Roger Granada, Rodrigo C. Barros, and Felipe Meneguzzi
 Abstract—With the growth of video content produced by
 mobile cameras and surveillance systems, an increasing amount
 of data is becoming available and can be used for a variety
@@ -276,9 +277,154 @@ process consists of sliding a window of fixed-size through
 the temporally sorted predicted classes assigning to the target
 frame (the frame in the center of the window) the majority
 voting of all frames within the window.
+III. EXPERIMENTAL ANALYSIS
+In this section, we describe the dataset used in our experiments for indoor fixed-camera action recognition, the implementation details regarding the CNNs and fusion methods, and
+the results that were achieved by our approach in comparison
+with the current state-of-the-art.
+A. KSCGR Dataset
+The Kitchen Scene Context based Gesture Recognition
+dataset2 (KSCGR)[6] is a fine-grained kitchen action dataset
+released as a challenge in ICPR 20123. The dataset contains
+scenes captured by a kinect sensor fixed on the top of the
+kitchen, providing synchronized color and depth image sequences. Each video is 5 to 10 minutes long, containing 9,000
+2http://www.murase.m.is.nagoya-u.ac.jp/KSCGR/
+3http://www.icpr2012.org/
+2050
+Authorized licensed use limited to: Mukesh Patel School of Technology & Engineering. Downloaded on April 02,2025 at 19:18:13 UTC from IEEE Xplore. Restrictions apply.
+Fig. 3. Example of the frame/action sequence for the “ham and egg” menu.
+to 18,000 frames. The organizers of the dataset assigned labels
+to each frame indicating the type of gesture performed by the
+actors. There are 8 cooking gestures in the dataset: breaking,
+mixing, baking, turning, cutting, boiling, seasoning, peeling,
+and none, where none means that there is no action being
+performed in the current frame. These gestures are performed
+in five different menus for cooking eggs in Japan: ham and
+eggs, omelet, scrambled egg, boiled egg, and kinshi-tamago.
+A total of 7 different subjects perform each menu. The ground
+truth data contains the frame id and the action being performed
+within the frame.
+We divided the dataset into training, validation, and test sets.
+The training set contains 4 subjects, each of them performing
+5 recipes, i.e., 20 videos and 139,196 frames in total. We
+use the validation set to obtain the model configuration that
+performs best, i.e., the configuration with the highest accuracy.
+This set contains 1 subject performing 5 recipes with 32,897
+frames in total. We use the test set to assess the accuracy
+of the selected model in unseen data. This set contains 2
+subjects, each performing 5 recipes, i.e., 10 videos with 55,781
+frames in total. Figure 3 shows the sequence of frames and
+actions when performing the menu Ham and Egg, where the
+colored bar represents the timeline of appearance of frames
+and actions, and the images illustrate examples of each action
+performed in the video.
+B. Implementation
+Fully-trained CNNs architecture: in order to perform the
+action recognition task we use an inception-based CNN architecture [12] trained from scratch in RGB and OFL separately.
+The training phase uses mini-batch stochastic gradient with
+momentum (0.9). For each iteration, the network forwards a
+mini-batch of 128 samples. We apply data augmentation with
+random crops, i.e., a different crop in a randomly selected part
+of the image is selected, as well as a probabilistic horizontal
+flip, generating a sub-image of 224 × 224. All images have
+their pixels subtracted by the mean pixel values of all training
+images. All convolutions, including those within the inception
+modules, use rectified linear activation units (ReLU). Regarding weight initialization, we employ the Xavier algorithm that
+automatically determines the value of initialization based on
+the number of input neurons. To minimize the chances of
+overfitting, we apply dropout on the fully-connected layers
+with a probability of 70%. The learning rate is set to 10−3
+and we drop it by a factor of 50 every epoch, stopping the
+training after 43.5k iterations (30 epochs).
+Pre-trained CNNs architectures: all networks of this
+group were pre-trained over the ILSVRC 2012 ImageNet
+dataset [11]. For the training phase, we kept almost the same
+configuration for all networks, using a mini-batch of 128 samples with a random crop of 224 × 224 as well as random horizontal flip. Each image has its pixels subtracted by the mean
+value of pixels of each channel. During training, we freeze
+all but the last layer of GoogLeNet[off-the-shelf], performing the
+weights and bias updates only for the last fully-connected layer
+for 10 epochs, increasing the learning rate of the layer by 10
+(setting learning rate of the weights to 10 and learning rate
+of the bias to 20). For fine-tuned models (AlexNet[Fine-tuned],
+GoogLeNet[Fine-tuned], and SqueezeNet[Fine-tuned]), we update all
+weights but with a different learning rate for the last layer. We
+increase the learning rate of the weights in the last layer from
+1 to 10 and the bias from 2 to 20, and decrease the global
+learning rate by 100. This configuration allows all layers to
+learn, though giving the final layer the capability to learn faster
+than the remaining layers.
+NN: this fusion approach contains a neural network trained
+with data from the validation set for 10 epochs with weights
+w1 and w2 initialized with 0.5. We use the mean squared
+error loss function and optimize it through Adam [17] with
+a learning rate set to 10−3.
+SVM: we train the multi-class Support Vector Machine
+using the off-the-shelf implementation by Crammer and Singer
+[9] from scikit-learn4 toolbox. Similarly to the neural network
+fusion, we train the SVM using the validation set. We use the
+linear kernel and default scikit-learn regularization parameter
+C = 1 with the square of the hinge loss as loss function.
+LSTM: we implemented the long short-term memory using
+the Keras5 neural networks library. Our configuration follows
+the implementation proposed by Donahue et al. [16] that
+connects a CNN with a LSTM, calling this model Longterm Recurrent Convolutional Network (LRCN). We explore
+various hyper-parameters using both training and validation
+sets, selecting the best architecture that contains 1024 hidden
+units with a dropout of 0.7 in order to avoid overfitting. We
+train and test the LSTM network in a sequence of 32 frames,
+and during training the stride is of 16 frames. We also apply
+the Adam [17] algorithm using a learning rate of 10−3. We
+run the training phase for 30 epochs.
+Post processing: the post processing consists of sliding a
+window of fixed-size through the predicted classes assigning
+to the target frame the majority voting of all frames within the
+window. In order to decide the size of the window, we used the
+predicted classes from the validation dataset. We performed
+several smoothing tests, varying the window-size from 10 to
+50 increasing the step in 10 frames each time. Finally, we
+4http://scikit-learn.org
+5https://keras.io
+2051
+Authorized licensed use limited to: Mukesh Patel School of Technology & Engineering. Downloaded on April 02,2025 at 19:18:13 UTC from IEEE Xplore. Restrictions apply.
+TABLE I
+PER-ACTIVITY ACCURACY IN THE KSCGR DATASET FOR ALL BASELINES AND FUSION METHODS.
+Method None Breaking Mixing Baking Turning Cutting Boiling Seasoning Peeling Overall
+GoogLeNet[RGB] 0.644 0.275 0.289 0.671 0.346 0.588 0.287 0.363 0.117 0.689
+GoogLeNet[OFL] 0.519 0.341 0.314 0.600 0.194 0.545 0.128 0.382 0.449 0.631
+GoogLeNet[RGB+OFL] + Mean 0.634 0.327 0.340 0.684 0.174 0.620 0.169 0.403 0.347 0.692
+GoogLeNet[RGB+OFL] + SVM 0.679 0.357 0.432 0.689 0.000 0.526 0.444 0.601 0.455 0.721
+GoogLeNet[RGB+OFL] + NN 0.690 0.354 0.452 0.693 0.012 0.516 0.505 0.651 0.382 0.726
+GoogLeNet[Off-the-shelf] 0.545 0.004 0.198 0.666 0.009 0.182 0.340 0.055 0.007 0.609
+AlexNet[Fine-tuned] 0.688 0.555 0.445 0.752 0.211 0.636 0.369 0.661 0.400 0.751
+GoogLeNet[Fine-tuned] 0.579 0.224 0.374 0.711 0.136 0.438 0.030 0.174 0.000 0.645
+SqueezeNet[Fine-tuned] 0.611 0.325 0.422 0.688 0.117 0.313 0.078 0.300 0.184 0.660
+AlexNet[Fine-tuned] + SVM 0.636 0.570 0.395 0.741 0.173 0.447 0.303 0.520 0.335 0.717
+GoogLeNet[Fine-tuned] + SVM 0.676 0.323 0.466 0.708 0.100 0.449 0.381 0.351 0.202 0.712
+SqueezeNet[Fine-tuned] + SVM 0.538 0.211 0.240 0.593 0.028 0.010 0.078 0.113 0.013 0.587
+3CNNs + SVM 0.604 0.363 0.449 0.678 0.105 0.269 0.165 0.236 0.042 0.667
+3CNNs + NN 0.687 0.598 0.434 0.757 0.209 0.623 0.348 0.663 0.509 0.752
+3CNNs + NN + PP 0.696 0.621 0.452 0.753 0.206 0.575 0.333 0.725 0.509 0.755
+3CNNs + LSTM 0.737 0.508 0.536 0.739 0.191 0.571 0.458 0.416 0.738 0.775
+3CNNs + LSTM + PP 0.754 0.504 0.564 0.749 0.190 0.560 0.469 0.384 0.773 0.785
+chose the window size of 20 frames since it achieved the best
+accuracy results on validation data.
 """
 
-# Agent 1: Query Enhancer
+class StateManagerAgent:
+    def __init__(self):
+        self.current_state = "idle"
+        self.state_history = []
+        
+    def update_state(self, new_state: str):
+        self.state_history.append(self.current_state)
+        self.current_state = new_state
+        
+    def get_current_state(self) -> str:
+        return self.current_state
+        
+    def get_state_history(self) -> List[str]:
+        return self.state_history
+
+
 class QueryEnhancerAgent:
     def __init__(self):
         self.system_prompt = """You are a Query Enhancement Agent. Your role is to analyze the user's query about a research paper and enhance it to make it more precise and searchable. 
@@ -308,7 +454,41 @@ class QueryEnhancerAgent:
         }
         response = self.chain.invoke(invoke_params)
         return response.content
+
+
+class ContextManagerAgent:
+    def __init__(self):
+        self.system_prompt = """You are a Context Management Agent. Your role is to analyze the user's enhanced query and previous chat history to establish relevant context for the current query.
+        
+        Consider:
+        1. Identify how the current query relates to previous interactions
+        2. Determine what context from previous exchanges is relevant to the current query
+        3. Detect shifts in topic or focus that require new context
+        4. Extract any constraints or preferences mentioned in the conversation history
+        5. Formulate a concise context summary to guide the information retrieval process
+        
+        Previous chat history:
+        {chat_history}
+        
+        Enhanced query:
+        {enhanced_query}
+        
+        Provide a concise context summary that will help guide the information retrieval process.
+        """
+        self.prompt = ChatPromptTemplate.from_messages([
+            SystemMessagePromptTemplate.from_template(self.system_prompt),
+            HumanMessagePromptTemplate.from_template("Enhanced Query: {enhanced_query}")
+        ])
+        self.chain = self.prompt | llm
     
+    def establish_context(self, enhanced_query: str, chat_history: Optional[List] = None) -> str:
+        invoke_params = {
+            "enhanced_query": enhanced_query,
+            "chat_history": "\n".join([f"{m.type}: {m.content}" for m in chat_history]) if chat_history else ""
+        }
+        response = self.chain.invoke(invoke_params)
+        return response.content
+
 class EmbeddingGeneratorAgent:
     def __init__(self):
         self.text_splitter = RecursiveCharacterTextSplitter(
@@ -327,7 +507,6 @@ class EmbeddingGeneratorAgent:
     
     def generate_query_embedding(self, query: str):
         return self.embedding_model.embed_query(query)
-
 
 class DataRetrieverAgent:
     def __init__(self, vectorstore, chunks):
@@ -349,14 +528,15 @@ class DataRetrieverAgent:
         """
         self.chain = ChatPromptTemplate.from_messages([
             SystemMessagePromptTemplate.from_template(self.system_prompt),
-            HumanMessagePromptTemplate.from_template("User Query: {query}\n\nRetrieved Sections: {sections}")
+            HumanMessagePromptTemplate.from_template("User Query: {query}\n\nQuery Context: {context}\n\nRetrieved Sections: {sections}")
         ]) | llm
     
-    def retrieve_data(self, query: str, k: int = 3) -> str:
+    def retrieve_data(self, query: str, context: str, k: int = 3) -> str:
         docs = self.vectorstore.similarity_search(query, k=k)       #semantic search on vector store
         retrieved_sections = "\n\n".join([doc.page_content for doc in docs])
         response = self.chain.invoke({
             "query": query, 
+            "context": context,
             "sections": retrieved_sections
         })
         return response.content, retrieved_sections
@@ -378,42 +558,73 @@ class ResponseMergerAgent:
         """
         self.chain = ChatPromptTemplate.from_messages([
             SystemMessagePromptTemplate.from_template(self.system_prompt),
-            HumanMessagePromptTemplate.from_template("User Query: {query}\n\nRetrieved Information: {retrieved_info}")
+            HumanMessagePromptTemplate.from_template("User Query: {query}\n\nQuery Context: {context}\n\nRetrieved Information: {retrieved_info}")
         ]) | llm
     
-    def merge_response(self, query: str, retrieved_info: str) -> str:
+    def merge_response(self, query: str, context: str, retrieved_info: str) -> str:
         response = self.chain.invoke({
-            "query": query, 
+            "query": query,
+            "context": context,
             "retrieved_info": retrieved_info
         })
         return response.content
 
-# class ResponseValidatorAgent:
-#     def __init__(self):
-#         self.system_prompt = """You are a Response Validation Agent. Your role is to critically evaluate the response generated for a user query and ensure its accuracy, relevance, and completeness.
+
+class ContradictionDetectorAgent:
+    def __init__(self):
+        self.system_prompt = """You are a Contradiction Detection Agent. Your role is to identify contradictions between different pieces of information or between different responses.
         
-#         Validation criteria:
-#         1. Accuracy: Does the response contain factual errors or misinterpretations of the research paper?
-#         2. Relevance: Does the response directly address the user's query?
-#         3. Completeness: Does the response cover all necessary aspects of the question?
-#         4. Clarity: Is the response clearly written and well-structured?
-#         5. Source fidelity: Does the response stay true to the information in the research paper?
+        Focus on:
+        1. Logical inconsistencies
+        2. Factual contradictions
+        3. Conflicting statements or conclusions
+        4. Inconsistent methodologies or approaches
         
-#         If the response fails any of these criteria, you should return "FAIL: [specific reason]"
-#         If the response passes all criteria, you should return "PASS"
-#         """
-#         self.chain = ChatPromptTemplate.from_messages([
-#             SystemMessagePromptTemplate.from_template(self.system_prompt),
-#             HumanMessagePromptTemplate.from_template("User Query: {query}\n\nGenerated Response: {response}\n\nRetrieved Information: {retrieved_info}")
-#         ]) | llm
+        If you detect a contradiction, describe it specifically and explain why it's a contradiction.
+        If you don't detect any contradictions, simply state "No contradictions detected."
+        """
+        self.chain = ChatPromptTemplate.from_messages([
+            SystemMessagePromptTemplate.from_template(self.system_prompt),
+            HumanMessagePromptTemplate.from_template("Merged Response: {merged_response}\n\nRetrieved Information: {retrieved_info}")
+        ]) | llm
     
-#     def validate_response(self, query: str, response: str, retrieved_info: str) -> str:
-#         validation = self.chain.invoke({
-#             "query": query,
-#             "response": response,
-#             "retrieved_info": retrieved_info
-#         })
-#         return validation.content
+    def detect_contradictions(self, merged_response: str, retrieved_info: str) -> str:
+        contradiction = self.chain.invoke({
+            "merged_response": merged_response,
+            "retrieved_info": retrieved_info
+        })
+        return contradiction.content
+
+
+class ConflictResolverAgent:
+    def __init__(self):
+        self.system_prompt = """You are a Conflict Resolution Agent. Your role is to resolve contradictions or conflicts between different pieces of information from a research paper.
+        
+        When resolving conflicts:
+        1. Identify the specific points of contradiction
+        2. Analyze the evidence for each conflicting claim
+        3. Determine which position is better supported by the research
+        4. Create a coherent explanation that resolves the contradiction
+        5. Be transparent about any uncertainty in the resolution
+        
+        Your goal is to provide a clear, evidence-based resolution to conflicts in the information.
+        """
+        self.chain = ChatPromptTemplate.from_messages([
+            SystemMessagePromptTemplate.from_template(self.system_prompt),
+            HumanMessagePromptTemplate.from_template("Contradicting Information: {contradiction}\n\nMerged Response: {merged_response}\n\nRetrieved Information: {retrieved_info}")
+        ]) | llm
+    
+    def resolve_conflict(self, contradiction: str, merged_response: str, retrieved_info: str) -> str:
+        if contradiction.startswith("No contradictions"):
+            return ""
+        
+        resolution = self.chain.invoke({
+            "contradiction": contradiction,
+            "merged_response": merged_response,
+            "retrieved_info": retrieved_info
+        })
+        return resolution.content
+
 
 class SourceLabelerAgent:
     def __init__(self):
@@ -438,6 +649,7 @@ class SourceLabelerAgent:
         })
         return labeled.content
 
+
 class SummarizerAgent:
     def __init__(self):
         self.system_prompt = """You are a Summarization Agent. Your role is to create concise, accurate summaries of longer content from a research paper.
@@ -459,57 +671,6 @@ class SummarizerAgent:
     def summarize(self, content: str) -> str:
         response = self.chain.invoke({"content": content})
         return response.content
-
-class ContradictionDetectorAgent:
-    def __init__(self):
-        self.system_prompt = """You are a Contradiction Detection Agent. Your role is to identify contradictions between different pieces of information or between different responses.
-        
-        Focus on:
-        1. Logical inconsistencies
-        2. Factual contradictions
-        3. Conflicting statements or conclusions
-        4. Inconsistent methodologies or approaches
-        
-        If you detect a contradiction, describe it specifically and explain why it's a contradiction.
-        If you don't detect any contradictions, simply state "No contradictions detected."
-        """
-        self.chain = ChatPromptTemplate.from_messages([
-            SystemMessagePromptTemplate.from_template(self.system_prompt),
-            HumanMessagePromptTemplate.from_template("Response 1: {response1}\n\nResponse 2: {response2}")
-        ]) | llm
-    
-    def detect_contradictions(self, response1: str, response2: str) -> str:
-        contradiction = self.chain.invoke({
-            "response1": response1,
-            "response2": response2
-        })
-        return contradiction.content
-    
-class ConflictResolverAgent:
-    def __init__(self):
-        self.system_prompt = """You are a Conflict Resolution Agent. Your role is to resolve contradictions or conflicts between different pieces of information from a research paper.
-        
-        When resolving conflicts:
-        1. Identify the specific points of contradiction
-        2. Analyze the evidence for each conflicting claim
-        3. Determine which position is better supported by the research
-        4. Create a coherent explanation that resolves the contradiction
-        5. Be transparent about any uncertainty in the resolution
-        
-        Your goal is to provide a clear, evidence-based resolution to conflicts in the information.
-        """
-        self.chain = ChatPromptTemplate.from_messages([
-            SystemMessagePromptTemplate.from_template(self.system_prompt),
-            HumanMessagePromptTemplate.from_template("Contradicting Information: {contradiction}\n\nOriginal Responses: {response1}\n{response2}")
-        ]) | llm
-    
-    def resolve_conflict(self, contradiction: str, response1: str, response2: str) -> str:
-        resolution = self.chain.invoke({
-            "contradiction": contradiction,
-            "response1": response1,
-            "response2": response2
-        })
-        return resolution.content
 
 
 class GraphPlannerAgent:
@@ -539,13 +700,15 @@ class GraphPlannerAgent:
         """
         self.chain = ChatPromptTemplate.from_messages([
             SystemMessagePromptTemplate.from_template(self.system_prompt),
-            HumanMessagePromptTemplate.from_template("User Query: {query}\n\nRetrieved Information: {retrieved_info}")
+            HumanMessagePromptTemplate.from_template("User Query: {query}\n\nQuery Context: {context}\n\nResponse Content: {response_content}\n\nRetrieved Information: {retrieved_info}")
         ]) | llm
     
-    def plan_graph(self, query: str, retrieved_info: str) -> Dict:
+    def plan_graph(self, query: str, context: str, response_content: str, retrieved_info: str) -> Dict:
         print("GraphPlanner input:", query, "\n\n", retrieved_info)
         response = self.chain.invoke({
             "query": query,
+            "context": context,
+            "response_content": response_content,
             "retrieved_info": retrieved_info
         })
         try:
@@ -558,7 +721,7 @@ class GraphPlannerAgent:
         except json.JSONDecodeError:
             return {"needs_graph": False, "error": "Could not parse graph plan"}
 
-# Agent 11: Graph Generator
+
 class GraphGeneratorAgent:
     def __init__(self):
         self.system_prompt = """You are a Graph Generation Agent. Your role is to extract data from research paper information and create appropriate visualizations based on the graph plan.
@@ -601,21 +764,16 @@ class GraphGeneratorAgent:
             else:
                 generation_data = json.loads(response.content)
                 
-            # Execute the matplotlib code in a safe environment
             matplotlib_code = generation_data.get("matplotlib_code", "")
             if matplotlib_code:
-                # Create a figure and save it to a base64 string
                 plt.figure(figsize=(10, 6))
-                # Execute the matplotlib code (with safety precautions)
                 safe_code = self._sanitize_matplotlib_code(matplotlib_code)
                 exec(safe_code)
                 
-                # Save the plot to a bytes buffer
                 buf = io.BytesIO()
                 plt.savefig(buf, format='png')
                 buf.seek(0)
                 
-                # Convert to base64 for embedding in HTML
                 img_base64 = base64.b64encode(buf.read()).decode('utf-8')
                 plt.close()
                 
@@ -631,14 +789,12 @@ class GraphGeneratorAgent:
             return {"graph_generated": False, "reason": f"Error generating graph: {str(e)}"}
     
     def _sanitize_matplotlib_code(self, code: str) -> str:
-        # Basic sanitization to prevent dangerous code execution
-        # In a production environment, you would want more robust sandboxing
         forbidden_imports = ["os", "sys", "subprocess", "eval", "exec"]
         for forbidden in forbidden_imports:
             if f"import {forbidden}" in code or f"from {forbidden}" in code:
                 raise ValueError(f"Forbidden import: {forbidden}")
         
-        # Only allow matplotlib-related imports
+
         allowed_imports = ["matplotlib", "numpy", "pandas"]
         import_lines = re.findall(r'import .*|from .* import', code)
         for line in import_lines:
@@ -652,7 +808,7 @@ class GraphGeneratorAgent:
                 
         return code
 
-# Agent 12: Response Generator
+# Agent 13: Response Generator
 class ResponseGeneratorAgent:
     def __init__(self):
         self.system_prompt = """You are a Response Generation Agent. Your role is to create the final response to the user's query, incorporating all validated information and resolving any contradictions.
@@ -670,20 +826,20 @@ class ResponseGeneratorAgent:
         """
         self.chain = ChatPromptTemplate.from_messages([
             SystemMessagePromptTemplate.from_template(self.system_prompt),
-            HumanMessagePromptTemplate.from_template("User Query: {query}\n\nValidated Information: {validated_info}\n\nResolved Contradictions: {resolved_contradictions}\n\nSource Labels: {source_labels}\n\nGraph Information: {graph_info}")
+            HumanMessagePromptTemplate.from_template("User Query: {query}\n\nQuery Context: {context}\n\nLabeled Content: {labeled_content}\n\nSummary: {summary}\n\nResolved Contradictions: {resolved_contradictions}\n\nGraph Information: {graph_info}")
         ]) | llm
     
-    def generate_response(self, query: str, validated_info: str, resolved_contradictions: str, source_labels: str, graph_info: Dict) -> str:
+    def generate_response(self, query: str, context: str, labeled_content: str, summary: str, resolved_contradictions: str, graph_info: Dict) -> str:
         response = self.chain.invoke({
             "query": query,
-            "validated_info": validated_info,
+            "context": context,
+            "labeled_content": labeled_content,
+            "summary": summary,
             "resolved_contradictions": resolved_contradictions if resolved_contradictions else "No contradictions to resolve.",
-            "source_labels": source_labels,
             "graph_info": json.dumps(graph_info) if graph_info else "No graph required."
         })
         return response.content
 
-# Agent 13: Memory Storer
 class MemoryStorerAgent:
     def __init__(self):
         self.memory = ConversationBufferMemory(return_messages=True,
@@ -700,23 +856,6 @@ class MemoryStorerAgent:
     def clear_memory(self):
         self.memory.clear()
 
-# Agent 14: State Manager
-class StateManagerAgent:
-    def __init__(self):
-        self.current_state = "idle"
-        self.state_history = []
-        
-    def update_state(self, new_state: str):
-        self.state_history.append(self.current_state)
-        self.current_state = new_state
-        
-    def get_current_state(self) -> str:
-        return self.current_state
-        
-    def get_state_history(self) -> List[str]:
-        return self.state_history
-
-# Agent 15: Error Handler
 class ErrorHandlerAgent:
     def __init__(self):
         self.system_prompt = """You are an Error Handling Agent. Your role is to analyze errors that occur during the processing of user queries and provide appropriate responses.
@@ -743,28 +882,24 @@ class ErrorHandlerAgent:
         })
         return response.content
 
-# Main Orchestrator
 class MultiAgentOrchestrator:
     def __init__(self):
         try:
-        # Generate paper embeddings at initialization
+            self.state_manager = StateManagerAgent()
+            self.query_enhancer = QueryEnhancerAgent()
+            self.context_manager = ContextManagerAgent()
             self.embedding_generator = EmbeddingGeneratorAgent()
             self.vectorstore, self.chunks = self.embedding_generator.generate_paper_embeddings(RESEARCH_PAPER_CONTENT)
-            
-            # Initialize all agents
-            self.query_enhancer = QueryEnhancerAgent()
             self.data_retriever = DataRetrieverAgent(self.vectorstore, self.chunks)
             self.response_merger = ResponseMergerAgent()
-            # self.response_validator = ResponseValidatorAgent()
-            self.source_labeler = SourceLabelerAgent()
-            self.summarizer = SummarizerAgent()
             self.contradiction_detector = ContradictionDetectorAgent()
             self.conflict_resolver = ConflictResolverAgent()
+            self.source_labeler = SourceLabelerAgent()
+            self.summarizer = SummarizerAgent()
             self.graph_planner = GraphPlannerAgent()
             self.graph_generator = GraphGeneratorAgent()
             self.response_generator = ResponseGeneratorAgent()
             self.memory_storer = MemoryStorerAgent()
-            self.state_manager = StateManagerAgent()
             self.error_handler = ErrorHandlerAgent()
 
         except Exception as e:
@@ -775,62 +910,45 @@ class MultiAgentOrchestrator:
         try:
             self.state_manager.update_state("processing_query")
             
-            # Step 1: Enhance the query
-            enhanced_query = self.query_enhancer.enhance_query(query)
+            self.state_manager.update_state("enhancing_query")
+            enhanced_query = self.query_enhancer.enhance_query(query, self.memory_storer.get_chat_history())
             
-            # Step 2: Retrieve relevant data from the research paper
-            retrieved_data, raw_retrieved_sections = self.data_retriever.retrieve_data(enhanced_query)
+            self.state_manager.update_state("establishing_context")
+            context = self.context_manager.establish_context(enhanced_query, self.memory_storer.get_chat_history())
             
-            # Step 3: Merge information into a coherent response
-            merged_response = self.response_merger.merge_response(enhanced_query, retrieved_data)
+            self.state_manager.update_state("retrieving_data")
             
-            # # Step 4: Validate the response
-            # validation_result = self.response_validator.validate_response(enhanced_query, merged_response, retrieved_data)
+            retrieved_data, raw_retrieved_sections = self.data_retriever.retrieve_data(enhanced_query, context)
             
-            # # Handle failed validation
-            # if validation_result.startswith("FAIL"):
-            #     self.state_manager.update_state("validation_failed")
-            #     # Try to regenerate response
-            #     merged_response = self.response_merger.merge_response(enhanced_query, retrieved_data)
-            #     validation_result = self.response_validator.validate_response(enhanced_query, merged_response, retrieved_data)
-            #     if validation_result.startswith("FAIL"):
-            #         return {
-            #             "response": f"I'm sorry, but I couldn't generate a reliable answer to your query. The issue was: {validation_result}",
-            #             "error": validation_result,
-            #             "has_graph": False
-            #         }
+            self.state_manager.update_state("merging_response")
+            merged_response = self.response_merger.merge_response(enhanced_query, context, retrieved_data)
             
-            # Step 5: Label sources
+            self.state_manager.update_state("detecting_contradictions")
+            contradictions = self.contradiction_detector.detect_contradictions(merged_response, retrieved_data)
+            
+            self.state_manager.update_state("resolving_contradictions")
+            resolved_content = self.conflict_resolver.resolve_conflict(contradictions, merged_response, retrieved_data)
+            
+            self.state_manager.update_state("labeling_sources")
             labeled_response = self.source_labeler.label_sources(merged_response, retrieved_data)
             
-            # Step 6: Generate a summary
+            self.state_manager.update_state("summarizing")
             summary = self.summarizer.summarize(labeled_response)
             
-            # Step 7: Check for contradictions
-            contradictions = self.contradiction_detector.detect_contradictions(labeled_response, summary)
+            self.state_manager.update_state("planning_graph")
+            graph_plan = self.graph_planner.plan_graph(enhanced_query, context, labeled_response, retrieved_data)
             
-            # Step 8: Resolve any contradictions
-            resolved_content = ""
-            if not contradictions.startswith("No contradictions"):
-                self.state_manager.update_state("resolving_contradictions")
-                resolved_content = self.conflict_resolver.resolve_conflict(contradictions, labeled_response, summary)
-            
-            # Step 9: Plan any graphs needed
-            graph_plan = self.graph_planner.plan_graph(enhanced_query, retrieved_data)
-            
-            # Step 10: Generate graphs if needed
             graph_data = {}
             if graph_plan.get("needs_graph", False):
                 self.state_manager.update_state("generating_graph")
                 graph_data = self.graph_generator.generate_graph(graph_plan, retrieved_data)
-            
-            # Step 11: Generate final response
+
             self.state_manager.update_state("generating_response")
             final_response = self.response_generator.generate_response(
-                enhanced_query, labeled_response, resolved_content, labeled_response, graph_data
+                enhanced_query, context, labeled_response, summary, resolved_content, graph_data
             )
             
-            # Step 12: Store in memory
+            self.state_manager.update_state("storing_memory")
             self.memory_storer.store_interaction(query, final_response)
             
             self.state_manager.update_state("completed")
@@ -858,7 +976,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],   # Add your frontend URL
+    allow_origins=["http://localhost:3000"],   
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -881,7 +999,6 @@ async def process_query(request: QueryRequest, background_tasks: BackgroundTasks
             "has_graph": False
         }
 
-# WebSocket for real-time updates during processing
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     try:
@@ -925,9 +1042,9 @@ async def websocket_endpoint(websocket: WebSocket):
                 })
                 
     except WebSocketDisconnect:
-        print("WebSocket disconnected")  # Debug log
+        print("WebSocket disconnected") 
     except Exception as e:
-        print(f"WebSocket error: {e}")  # Debug log
+        print(f"WebSocket error: {e}")  
 
 
 if __name__ == "__main__":
