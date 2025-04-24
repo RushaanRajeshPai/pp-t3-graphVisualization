@@ -172,15 +172,15 @@ function App() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl bg-gray-100 min-h-screen">
+    <div className="container bg-black min-h-screen text-white px-4 py-8 max-w-4xl mx-auto">
       <header className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-800">Research Paper Assistant</h1>
-        <p className="text-gray-700 mt-2">Ask questions about research papers</p>
+        <h1 className="text-3xl font-bold text-white">Research Paper Assistant</h1>
+        <p className="text-gray-300 mt-2">Ask questions about research papers</p>
       </header>
 
       <div
         ref={chatContainerRef}
-        className="bg-white rounded-lg shadow-md p-6 mb-6 h-[60vh] overflow-y-auto"
+        className="bg-gray-900 rounded-lg overflow-y-auto p-6 mb-6 h-[60vh]"
       >
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full text-gray-500">
@@ -191,12 +191,12 @@ function App() {
             <div key={index} className={`mb-4 ${message.type === 'user' ? 'text-right' : ''}`}>
               <div className={`inline-block p-4 rounded-lg max-w-[80%] ${
                 message.type === 'user'
-                  ? 'bg-blue-100 text-gray-900'
+                  ? 'bg-blue-800 text-white'
                   : message.type === 'error'
-                    ? 'bg-red-200 text-red-900'
-                    : 'bg-gray-200 text-gray-900'
+                    ? 'bg-red-800 text-white'
+                    : 'bg-gray-700 text-white'
               }`}>
-                <div className="prose max-w-none">
+                <div className="prose max-w-none text-white">
                   {renderMarkdown(message.content)}
                 </div>
 
@@ -215,12 +215,12 @@ function App() {
         )}
 
         {isProcessing && (
-          <div className="flex items-center space-x-2 text-gray-600 mt-4 ml-4">
+          <div className="flex items-center space-x-2 text-gray-300 mt-4 ml-4">
             <span>{getStatusMessage()}</span>
             <div className="loading-dots flex space-x-1">
-              <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce"></div>
-              <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-              <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
             </div>
           </div>
         )}
@@ -232,7 +232,7 @@ function App() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Ask a question about the research paper..."
-          className="flex-1 p-3 border border-gray-300 text-gray-800 bg-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="flex-1 p-3 border border-gray-600 text-white bg-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
           disabled={isProcessing}
         />
         <button
@@ -246,14 +246,16 @@ function App() {
         </button>
       </form>
 
-      <div className="mt-6 flex justify-between text-sm text-gray-600">
-        <p>Connection status: <span className={isConnected ? "text-green-600" : "text-red-600"}>
+      <div className="mt-6 flex justify-between text-sm text-gray-400">
+        <p>Connection status: <span className={isConnected ? "text-green-400" : "text-red-400"}>
           {isConnected ? 'Connected' : 'Disconnected'}
         </span></p>
-        <p>Current state: <span className="font-semibold text-gray-700">{getStatusMessage()}</span></p>
+        <p>Current state: <span className="font-semibold text-gray-200">{getStatusMessage()}</span></p>
       </div>
     </div>
   );
 }
 
 export default App;
+
+
