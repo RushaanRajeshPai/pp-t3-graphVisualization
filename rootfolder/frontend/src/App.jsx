@@ -13,33 +13,32 @@ function App() {
 
   useEffect(() => {
     let ws = null;
-  
+
     const connectWebSocket = () => {
       ws = new WebSocket('ws://localhost:8000/ws');
-      
+
       ws.onopen = () => {
         console.log('WebSocket Connected');
         setIsConnected(true);
         setSocket(ws);
       };
-  
+
       ws.onclose = () => {
         console.log('WebSocket Disconnected');
         setIsConnected(false);
         setSocket(null);
-        // Try to reconnect in 5 seconds
         setTimeout(connectWebSocket, 5000);
       };
-  
+
       ws.onerror = (error) => {
         console.error('WebSocket Error:', error);
       };
-  
+
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
           console.log('Received:', data);
-          
+
           if (data.status === 'processing') {
             setCurrentState(data.state || 'processing_query');
           } else if (data.status === 'completed') {
@@ -57,9 +56,9 @@ function App() {
         }
       };
     };
-  
+
     connectWebSocket();
-  
+
     return () => {
       if (ws) {
         ws.close();
@@ -68,7 +67,6 @@ function App() {
   }, []);
 
   useEffect(() => {
-    // Auto-scroll to bottom when messages update
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
@@ -79,7 +77,6 @@ function App() {
 
     if (!query.trim()) return;
 
-    // Add user query to messages
     setMessages(prevMessages => [
       ...prevMessages,
       {
@@ -91,17 +88,14 @@ function App() {
     setIsProcessing(true);
     setCurrentState('processing_query');
 
-    // If WebSocket is connected, use it
     if (isConnected && socket) {
       try {
         socket.send(JSON.stringify({ query }));
       } catch (error) {
         console.error('WebSocket error:', error);
-        // Fallback to REST API
         await fetchWithRestApi();
       }
     } else {
-      // REST API fallback
       await fetchWithRestApi();
     }
 
@@ -135,7 +129,6 @@ function App() {
     }
   };
 
-  // Add a helper function to handle responses
   const handleResponse = (data) => {
     setMessages(prevMessages => [
       ...prevMessages,
@@ -149,7 +142,6 @@ function App() {
     setIsProcessing(false);
   };
 
-  // Get status message based on current state
   const getStatusMessage = () => {
     const stateMessages = {
       'idle': 'Ready',
@@ -169,24 +161,21 @@ function App() {
       'completed': 'Completed',
       'error': 'Error occurred'
     };
-    
+
     return stateMessages[currentState] || 'Processing';
   };
 
-  // Function to render markdown content
   const renderMarkdown = (content) => {
-    // This is a simplified version
-    // For proper markdown rendering, install and use a package like react-markdown
     return (
       <div dangerouslySetInnerHTML={{ __html: content.replace(/\n/g, '<br />') }} />
     );
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <div className="container mx-auto px-4 py-8 max-w-4xl bg-gray-100 min-h-screen">
       <header className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-blue-700">Research Paper Assistant</h1>
-        <p className="text-gray-600 mt-2">Ask questions about research papers</p>
+        <h1 className="text-3xl font-bold text-gray-800">Research Paper Assistant</h1>
+        <p className="text-gray-700 mt-2">Ask questions about research papers</p>
       </header>
 
       <div
@@ -202,10 +191,10 @@ function App() {
             <div key={index} className={`mb-4 ${message.type === 'user' ? 'text-right' : ''}`}>
               <div className={`inline-block p-4 rounded-lg max-w-[80%] ${
                 message.type === 'user'
-                  ? 'bg-blue-100 text-blue-800'
+                  ? 'bg-blue-100 text-gray-900'
                   : message.type === 'error'
-                    ? 'bg-red-100 text-red-800'
-                    : 'bg-gray-100 text-gray-800'
+                    ? 'bg-red-200 text-red-900'
+                    : 'bg-gray-200 text-gray-900'
               }`}>
                 <div className="prose max-w-none">
                   {renderMarkdown(message.content)}
@@ -243,12 +232,12 @@ function App() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Ask a question about the research paper..."
-          className="flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="flex-1 p-3 border border-gray-300 text-gray-800 bg-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           disabled={isProcessing}
         />
         <button
           type="submit"
-          className={`bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-lg transition ${
+          className={`bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition ${
             isProcessing ? 'opacity-50 cursor-not-allowed' : ''
           }`}
           disabled={isProcessing}
@@ -257,11 +246,11 @@ function App() {
         </button>
       </form>
 
-      <div className="mt-6 flex justify-between text-sm text-gray-500">
-        <p>Connection status: <span className={isConnected ? "text-green-500" : "text-red-500"}>
+      <div className="mt-6 flex justify-between text-sm text-gray-600">
+        <p>Connection status: <span className={isConnected ? "text-green-600" : "text-red-600"}>
           {isConnected ? 'Connected' : 'Disconnected'}
         </span></p>
-        <p>Current state: <span className="font-medium">{getStatusMessage()}</span></p>
+        <p>Current state: <span className="font-semibold text-gray-700">{getStatusMessage()}</span></p>
       </div>
     </div>
   );
