@@ -794,6 +794,7 @@ class GraphGeneratorAgent:
             if f"import {forbidden}" in code or f"from {forbidden}" in code:
                 raise ValueError(f"Forbidden import: {forbidden}")
         
+        code = code.replace("plt.show()", "")
 
         allowed_imports = ["matplotlib", "numpy", "pandas"]
         import_lines = re.findall(r'import .*|from .* import', code)
