@@ -172,7 +172,7 @@ function App() {
   };
 
   return (
-    <div className="container bg-black min-h-screen text-white px-4 py-8 max-w-4xl mx-auto">
+    <div className="container bg-white min-h-screen text-white px-4 py-8 max-w-4xl mx-auto">
       <header className="text-center mb-8">
         <h1 className="text-3xl font-bold text-white">Research Paper Assistant</h1>
         <p className="text-gray-300 mt-2">Ask questions about research papers</p>
